@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Welcome, {{ current_user.username }}!</h2>
+        <p>You are logged in.</p>
+        {% for message in get_flashed_messages() %}
+            <h1>{{ message }}</h1>
+        {% endfor %}
+        <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">Upload a .zip file:</label>
+                <input type="file" name="file" accept=".zip" class="form-control-file" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload</button>
+        </form>
+        <br>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+</body>
+</html>
