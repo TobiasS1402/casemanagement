@@ -21,6 +21,7 @@ class User(UserMixin):
 # Example user database (replace with your own user database)
 users = [
     User(1, 'admin', 'adminpassword'),
+    User(2, 'tobias', 'tobiaspassword')
 ]
 
 @login_manager.user_loader
@@ -56,6 +57,10 @@ def index():
 @app.route('/upload', methods=['POST'])
 @login_required
 def upload():
+    '''
+    This route is for uploading zip files with a specific extension. It unpacks it with a relatively safe extractall() and then discards all the files that 
+    are not like .evtx.
+    '''
     if 'file' not in request.files:
         flash('No file part', 'danger')
         return redirect(request.url)
@@ -70,14 +75,33 @@ def upload():
         zip_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(zip_path)
 
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(os.path.join(app.config['UPLOAD_FOLDER'], current_user.username))
+        uploadpath = os.path.join(app.config['UPLOAD_FOLDER'], current_user.username)
+        evtx_files = [] 
 
-        flash('File uploaded successfully!', 'success')
-        return redirect(url_for('index'))
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(uploadpath)
+            for root, dirs, files in os.walk(uploadpath):
+                for file in files:
+                    if not file.endswith('.evtx'):
+                        os.unlink(os.path.join(root, file) ) #could be very dangerous
+                    else:
+                        evtx_files.append(file)
+        if evtx_files: 
+            '''
+                Here we need to write code in order to process and input our .evtx files into Splunk            
+            '''
+            flash('File uploaded and unpacked successfully!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Could not find expected filetype', 'warning')
+            return redirect(url_for('index'))
     else:
         flash('Invalid file format. Please upload a .zip file.', 'danger')
         return redirect(url_for('index'))
+
+'''
+    An API endpoint would also be nice where you can authenticate
+'''
 
 if __name__ == '__main__':
     if not os.path.exists(app.config['UPLOAD_FOLDER']):

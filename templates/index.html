@@ -10,8 +10,10 @@
     <div class="container mt-5">
         <h2>Welcome, {{ current_user.username }}!</h2>
         <p>You are logged in.</p>
-        {% for message in get_flashed_messages() %}
-            <h1>{{ message }}</h1>
+        {% for category,message in get_flashed_messages(with_categories=true) %}
+            <div class="alert alert-{{ category.lower() }}">
+            <strong>{{ message }}</strong>
+            </div>
         {% endfor %}
         <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data">
             <div class="form-group">

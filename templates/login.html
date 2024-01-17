@@ -9,8 +9,10 @@
 <body>
     <div class="container mt-5">
         <h2>Login</h2>
-        {% for message in get_flashed_messages() %}
-            <h1>{{ message }}</h1>
+        {% for category,message in get_flashed_messages(with_categories=true) %}
+            <div class="alert alert-{{ category.lower() }}">
+            <strong>{{ message }}</strong>
+            </div>
         {% endfor %}
         <form method="POST" action="{{ url_for('login') }}">
             <div class="form-group">
