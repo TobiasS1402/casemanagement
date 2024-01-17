@@ -3,6 +3,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import zipfile
+import requests
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'asdasd23r23tg43g'
@@ -83,18 +84,39 @@ def upload():
             for root, dirs, files in os.walk(uploadpath):
                 for file in files:
                     if not file.endswith('.evtx'):
-                        os.unlink(os.path.join(root, file) ) #could be very dangerous
+                        os.unlink(os.path.join(root, file) ) # could be very dangerous
                     else:
-                        evtx_files.append(file)
-        if evtx_files: 
+                        evtx_files.append(file) # add evidence files to list
+        if evtx_files:
+            print(evtx_files)
+            for evtx in evtx_files: 
+                splunk_url = "https://145.100.105.146:8089/services/receivers/stream" # Splunk URL -> need to make this a variable
+                splunk_username = "" # Spunk username or token -> need to make this a variable
+                splunk_password = "" # idem
+                splunk_file_path = os.path.join(root, evtx) # This just makes sure I can find the file again
+
+                auth_credentials = (splunk_username, splunk_password) # Combines username and password for auth
+
+                params = { 
+                    "sourcetype": "preprocess-winevt", # Required for correct processing of eventlogdata
+                    "index": "main" # The index its being put in -> need to make this a variable
+                }
+
+                files = {'data': (evtx, open(splunk_file_path, 'rb'))} # Get filename for source and read the actual file
+
+                response = requests.post(splunk_url, auth=auth_credentials, params=params, files=files, verify=False) # send the request (looped) to splunk
+
             '''
-                Here we need to write code in order to process and input our .evtx files into Splunk            
+            need to build a cleaner to get rid of the files, this is not a storage facility
             '''
-            flash('File uploaded and unpacked successfully!', 'success')
+
+            flash('File uploaded, unpacked and sent to splunk with status code ' + str(response.status_code) + ' successfully!', 'success')
             return redirect(url_for('index'))
+        
         else:
             flash('Could not find expected filetype', 'warning')
             return redirect(url_for('index'))
+        
     else:
         flash('Invalid file format. Please upload a .zip file.', 'danger')
         return redirect(url_for('index'))
