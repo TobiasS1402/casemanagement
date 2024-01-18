@@ -77,7 +77,7 @@ with app.app_context():
         db_session.commit()
         print('Admin user created successfully with password: ' + str(admin_password))
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'], endpoint='security.login')
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("index"))
@@ -96,19 +96,19 @@ def login():
     return render_template('login.html')
 
 @app.route('/logout')
-@login_required
+@auth_required()
 def logout():
     utils.logout_user()
     flash('Logged out successfully.', 'primary')
     return redirect(url_for('login'))
 
 @app.route('/')
-@login_required
+@auth_required()
 def index():
     return render_template('index.html')
 
 @app.route('/admin')
-@login_required
+@auth_required()
 @roles_accepted("admin") # Add necessary roles here
 def admin():
     existing_users = User.query.all()
@@ -116,7 +116,7 @@ def admin():
     return render_template('admin.html', current_user=current_user, existing_users=existing_users, existing_groups=existing_groups)
 
 @app.route('/upload', methods=['POST'])
-@login_required
+@auth_required()
 def upload():
     '''
     This route is for uploading zip files with a specific extension. It unpacks it with a relatively safe extractall() and then discards all the files that 
@@ -155,7 +155,7 @@ def upload():
             flash('Could not find expected filetype', 'warning')
             return redirect(url_for('index'))
         else:
-            cleanUploads(uploadpath)
+            cleanUploads()
             return redirect(url_for('index'))
         
     else:
