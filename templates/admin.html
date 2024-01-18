@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Page</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+
+<div class="container mt-5">
+    <h2>Welcome, {{ current_user.username }}!</h2>
+    <p>You are logged in as an administrator.</p>
+
+    <!-- Add User Form -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Add New User</h4>
+        </div>
+        <div class="card-body">
+            <form method="post" action="">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" name="username" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" name="password" class="form-control" required>
+                </div>
+
+                <!-- Add any other fields you need for user creation -->
+
+                <button type="submit" class="btn btn-primary">Add User</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Group Form -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Add New Group</h4>
+        </div>
+        <div class="card-body">
+            <form method="post" action="">
+                <div class="form-group">
+                    <label for="group_name">Group Name:</label>
+                    <input type="text" name="group_name" class="form-control" required>
+                </div>
+
+                <!-- Add any other fields you need for group creation -->
+
+                <button type="submit" class="btn btn-primary">Add Group</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Display Existing Users -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Existing Users</h4>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <!-- Add other user-related columns if needed -->
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in existing_users %}
+                        <tr>
+                            <td>{{ user.username }}</td>
+                            <!-- Display other user-related data if needed -->
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Display Existing Groups -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Existing Groups</h4>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Group Name</th>
+                        <!-- Add other group-related columns if needed -->
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for group in existing_groups %}
+                        <tr>
+                            <td>{{ group.group_name }}</td>
+                            <!-- Display other group-related data if needed -->
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <br>
+    <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+</div>
+
+</body>
+</html>
