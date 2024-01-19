@@ -9,7 +9,7 @@ import requests
 import shutil
 import urllib3
 
-from models import User, Role # import from models.py
+from models import User, Role, RolesUsers, Case # import from models.py
 from database import db_session, init_db # import from database.py
 
 urllib3.disable_warnings() # disable logging warnings
@@ -66,7 +66,17 @@ with app.app_context():
     '''
     init_db()
     app.security.datastore.find_or_create_role(
-        name="admin", permissions={"all"}
+        name="admin", description="Manage app with access to admin endpoint", permissions={"all"}
+    )
+    db_session.commit() 
+
+    app.security.datastore.find_or_create_role(
+        name="client", description="View and upload cases", permissions={"view", "upload"}
+    )
+    db_session.commit() 
+
+    app.security.datastore.find_or_create_role(
+        name="user", description="View, upload and add cases", permissions={"view", "upload", "add"}
     )
     db_session.commit() 
 
@@ -111,25 +121,56 @@ def index():
 
 @app.route('/user', methods=['POST'])
 @auth_required()
+@roles_accepted("admin")
 def user():
     username = request.form['username']
     password = request.form['password']
-    roles = request.form['role']
+    roles = request.form['roles']
+    roles = [roles]
     app.security.datastore.create_user(username=username,password=generate_password_hash(password,method='pbkdf2:sha256'),roles=roles)
+    db_session.commit()
     return redirect(url_for('admin'))
 
 @app.route('/role', methods=['POST'])
 @auth_required()
+@roles_accepted("admin")
 def role():
+    role = request.form['role']
+    description = request.form['description']
+    permissions = request.form['permissions']
+    app.security.datastore.create_role(name=role, description=description, permissions=permissions)
+    db_session.commit()
     return redirect(url_for('admin'))
 
-@app.route('/admin')
+@app.route('/case', methods=['POST'])
 @auth_required()
-@roles_accepted("admin") # Add necessary roles here
+def case():
+    name = request.form['name']
+    client = request.form['client']
+    splunk_index = request.form['splunk_index']
+    assigned_users_ids = request.form.getlist('assigned_users')  # Handle multiple assigned users
+
+    # Create a new case
+    new_case = Case(name=name, client=client, splunk_index=splunk_index)
+
+    # Assign users to the case
+    assigned_users = User.query.filter(User.id.in_(assigned_users_ids)).all()
+    new_case.assigned_users.extend(assigned_users)
+
+    # Add the case to the database
+    db_session.add(new_case)
+    db_session.commit()
+    return redirect(url_for('admin'))
+
+@app.route('/admin', methods=['GET','POST'])
+@auth_required()
+@roles_accepted("admin","user") # Add necessary roles here
 def admin():
     existing_users = User.query.all()
     existing_roles = Role.query.all()
-    return render_template('admin.html', current_user=current_user, existing_users=existing_users, existing_roles=existing_roles)
+    roles_users = RolesUsers.query.all()
+    cases_users = Case.query.all()
+    return render_template('admin.html', current_user=current_user, existing_users=existing_users, existing_roles=existing_roles, roles_users=roles_users, cases_users=cases_users)
 
 @app.route('/upload', methods=['POST'])
 @auth_required()

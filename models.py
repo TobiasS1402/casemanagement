@@ -6,7 +6,12 @@ from flask_security import UserMixin, RoleMixin, AsaList
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy import Boolean, DateTime, Column, Integer, \
-                    String, ForeignKey
+                    String, ForeignKey, Table
+
+cases_users_association = Table('case_users_association', Base.metadata,
+    Column('case_id', Integer, ForeignKey('case.id')),
+    Column('user_id', Integer, ForeignKey('user.id'))
+)
 
 class User(Base, UserMixin):
     __tablename__ = 'user'
@@ -16,7 +21,8 @@ class User(Base, UserMixin):
     active = Column(Boolean(),default=True)
     fs_uniquifier = Column(String(64), unique=True, nullable=False)
     roles = relationship('Role', secondary='roles_users', backref=backref('users', lazy='dynamic'))
-
+    assigned_cases = relationship('Case', secondary=cases_users_association, back_populates='assigned_users')
+    
 class Role(Base, RoleMixin):
     __tablename__ = 'role'
     id = Column(Integer(), primary_key=True)
@@ -29,3 +35,11 @@ class RolesUsers(Base):
     id = Column(Integer(), primary_key=True)
     user_id = Column(Integer(), ForeignKey('user.id'))
     role_id = Column(Integer(), ForeignKey('role.id'))
+
+class Case(Base):
+    __tablename__ = 'case'
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(255))
+    client = Column(String(255))
+    splunk_index = Column(String(100))
+    assigned_users = relationship('User', secondary=cases_users_association, back_populates='assigned_cases')
