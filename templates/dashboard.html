@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Case Overview</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="#">Evidence Portal</a>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                {% for role in current_user.roles %}
+                    {% if role.name == 'admin' %}
+                        <li class="nav-item">
+                            <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('admin') }}">Go to Admin Panel</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('index') }}">Back to main</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Add Case Form -->
+    {% for role in current_user.roles %}
+        {% if "all" in role.permissions or "add" in role.permissions %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4>Add New Case</h4>
+            </div>
+            <div class="card-body">
+                <div class="container">
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <form method="POST" action="{{ url_for('case') }}">
+                                <div class="form-group">
+                                    <label for="name">Name:</label>
+                                    <input type="text" name="name" class="form-control" placeholder="AWS ransomware incident" value="{{ request.form['name'] }}" required>
+
+                                    <label for="client">Client:</label>
+                                    <input type="text" name="client" class="form-control" placeholder="InsecureCorp LLC" value="{{ request.form['client'] }}" required>
+
+                                    <label for="splunk_index">Splunk Index:</label>
+                                    <input type="text" name="splunk_index" class="form-control" placeholder="myNewIndex" value="{{ request.form['splunk_index'] }}" required>
+
+                                    <label for="assigned_users">Assigned Users:</label>
+                                    <select name="assigned_users" class="form-control" multiple required>
+                                        {% for user in existing_users %}
+                                            <option value="{{ user.id }}">{{ user.username }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Create Case</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+
+    <div class="container mt-5">
+        <h2>Case Overview</h2>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Client</th>
+                    <th>Splunk Index</th>
+                    <th>Assigned Users</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for case in cases_users %}
+                    <tr>
+                        <td>{{ case.id }}</td>
+                        <td>{{ case.name }}</td>
+                        <td>{{ case.client }}</td>
+                        <td>{{ case.splunk_index }}</td>
+                        <td>
+                            {% for user in case.assigned_users %}
+                                {{ user.username }}
+                                {% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </td>
+                        <!-- Add more cells as needed -->
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

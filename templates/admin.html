@@ -16,10 +16,28 @@
     </style>
 </head>
 <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="#">Evidence Portal</a>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('index') }}">Back to main</a>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('dashboard') }}">Go to dashboard</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
 
 <div class="container mt-5">
     <h2>Welcome, {{ current_user.username }}!</h2>
     <p>You are logged in as an administrator.</p>
+    {% for category,message in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ category.lower() }}">
+    <strong>{{ message }}</strong>
+    </div>
+    {% endfor %}
 
     <!-- Add User Form -->
     <div class="card mt-4">
@@ -65,35 +83,6 @@
                     <input type="text" name="permissions" class="form-control" placeholder="view,upload,test" value="{{ request.form['permissions'] }}" required>
                 </div>
                 <button type="submit" class="btn btn-primary">Add Role</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Add Case Form -->
-    <div class="card mt-4">
-        <div class="card-header">
-            <h4>Add New Case</h4>
-        </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('case') }}">
-                <div class="form-group">
-                    <label for="name">Name:</label>
-                    <input type="text" name="name" class="form-control" placeholder="AWS ransomware incident" value="{{ request.form['name'] }}" required>
-
-                    <label for="client">Client:</label>
-                    <input type="text" name="client" class="form-control" placeholder="InsecureCorp LLC" value="{{ request.form['client'] }}" required>
-
-                    <label for="splunk_index">Splunk Index:</label>
-                    <input type="text" name="splunk_index" class="form-control" placeholder="myNewIndex" value="{{ request.form['splunk_index'] }}"required>
-
-                    <label for="assigned_users">Assigned Users:</label>
-                    <select name="assigned_users" class="form-control" multiple required>
-                        {% for user in existing_users %}
-                            <option value="{{ user.id }}">{{ user.username }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary">Create Case</button>
             </form>
         </div>
     </div>
@@ -151,40 +140,6 @@
                             <td>{{ role.name }}</td>
                             <td>{{ role.description }}</td>
                             <td>{{ role.permissions }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="card mt-4">
-        <div class="card-header">
-            <h4>Existing Cases</h4>
-        </div>
-        <div class="card-body">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Case Name</th>
-                        <th>Client Name</th>
-                        <th>Splunk Index</th>
-                        <th>Assigned users</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for case in cases_users %}
-                        <tr>
-                            <td>{{ case.name }}</td>
-                            <td>{{ case.client }}</td>
-                            <td>{{ case.splunk_index }}</td>
-                            <td>
-                                {% for user in case.assigned_users %}
-                                    {{ user.username }}
-                                    {% if not loop.last %}, {% endif %}
-                                {% endfor %}
-                            </td>
-                            
                         </tr>
                     {% endfor %}
                 </tbody>

@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_security import Security, current_user, auth_required, hash_password,  \
-     SQLAlchemySessionUserDatastore, permissions_accepted, utils, roles_accepted, login_required, LoginForm, roles_required
+from flask_security import Security, current_user, auth_required,SQLAlchemySessionUserDatastore, utils, roles_accepted, roles_required, permissions_required, permissions_accepted
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import os
@@ -26,7 +25,7 @@ user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 app.security = Security(app, user_datastore, register_blueprint=False)
 
 
-def splunkConfig(evtx,root):
+def splunkConfig(evtx,root,index):
     splunk_url = app.config['SPLUNK_URL']
     splunk_token = app.config['SPLUNK_TOKEN']
     splunk_file_path = os.path.join(root, evtx) # This just makes sure I can find the file again
@@ -37,7 +36,7 @@ def splunkConfig(evtx,root):
 
     params = { 
         "sourcetype": "preprocess-winevt", # Required for correct processing of eventlogdata
-        "index": "main" # The index its being put in -> need to make this a variable
+        "index": index # The index its being put in -> need to make this a variable
     }
 
     files = {'data': (evtx, open(splunk_file_path, 'rb'))} # Get filename for source and read the actual file
@@ -58,6 +57,7 @@ def cleanUploads(uploadPath):
             os.unlink(os.path.join(root,file))
         shutil.rmtree(root)
     return
+
 
 with app.app_context():
     '''
@@ -89,6 +89,7 @@ with app.app_context():
         db_session.commit()
         print('Admin user created successfully with password: ' + str(admin_password))
 
+
 @app.route('/login', methods=['GET', 'POST'], endpoint='security.login')
 def login():
     if current_user.is_authenticated:
@@ -107,50 +108,111 @@ def login():
             return render_template('login.html')
     return render_template('login.html')
 
+
 @app.route('/logout')
 @auth_required()
 def logout():
     utils.logout_user()
     flash('Logged out successfully.', 'primary')
-    return redirect(url_for('login'))
+    return redirect(url_for('security.login'))
+
 
 @app.route('/')
 @auth_required()
 def index():
-    return render_template('index.html')
+    existing_users = User.query.all()
+    return render_template('index.html', existing_users=existing_users)
+
+
+@app.route('/dashboard', methods=['POST','GET'])
+@auth_required()
+@roles_accepted("user","admin","client")
+def dashboard():
+    cases_users = Case.query.all()
+    existing_users = User.query.all()
+    return render_template('dashboard.html', cases_users=cases_users, existing_users=existing_users)
 
 @app.route('/user', methods=['POST'])
 @auth_required()
 @roles_accepted("admin")
 def user():
+    # Get form data
     username = request.form['username']
     password = request.form['password']
-    roles = request.form['roles']
-    roles = [roles]
-    app.security.datastore.create_user(username=username,password=generate_password_hash(password,method='pbkdf2:sha256'),roles=roles)
+    roles = request.form.getlist('roles')
+
+    # Input validation
+    if not username or not password or not roles:
+        flash('Please fill out all fields.', 'danger')
+        return redirect(url_for('admin'))
+
+    # Check if user with the same username already exists
+    existing_user = User.query.filter_by(username=username).first()
+
+    if existing_user:
+        flash(f'A user with the username {username} already exists.', 'danger')
+        return redirect(url_for('admin'))
+
+    # Create the new user
+    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+    #new_user = User(username=username, password=hashed_password, roles=roles) #breaks for some reason??
+    app.security.datastore.create_user(username=username,password=hashed_password,roles=roles)
+
     db_session.commit()
+
+    flash('User created successfully!', 'success')
     return redirect(url_for('admin'))
+
 
 @app.route('/role', methods=['POST'])
 @auth_required()
 @roles_accepted("admin")
 def role():
-    role = request.form['role']
+    # Get form data
+    role_name = request.form['role']
     description = request.form['description']
     permissions = request.form['permissions']
-    app.security.datastore.create_role(name=role, description=description, permissions=permissions)
+
+    # Input validation
+    if not role_name or not description or not permissions:
+        flash('Please fill out all fields.', 'danger')
+        return redirect(url_for('admin'))
+
+    # Check if role with the same name already exists
+    existing_role = Role.query.filter_by(name=role_name).first()
+    if existing_role:
+        flash(f'A role with the name {role_name} already exists.', 'danger')
+        return redirect(url_for('admin'))
+
+    # Create the new role
+    app.security.datastore.create_role(name=role_name, description=description, permissions=permissions)
     db_session.commit()
+
+    flash('Role created successfully!', 'success')
     return redirect(url_for('admin'))
+
 
 @app.route('/case', methods=['POST'])
 @auth_required()
 def case():
+    # Get form data
     name = request.form['name']
     client = request.form['client']
     splunk_index = request.form['splunk_index']
     assigned_users_ids = request.form.getlist('assigned_users')  # Handle multiple assigned users
 
-    # Create a new case
+    # Input validation
+    if not name or not client or not splunk_index or not assigned_users_ids:
+        flash('Please fill out all fields.', 'danger')
+        return redirect(url_for('admin'))
+
+    # Check if the case with the same name already exists
+    existing_case = Case.query.filter_by(name=name).first()
+    if existing_case:
+        flash(f'A case with the name {name} already exists.', 'danger')
+        return redirect(url_for('admin'))
+
+    # Create the new case
     new_case = Case(name=name, client=client, splunk_index=splunk_index)
 
     # Assign users to the case
@@ -160,11 +222,13 @@ def case():
     # Add the case to the database
     db_session.add(new_case)
     db_session.commit()
-    return redirect(url_for('admin'))
+
+    flash('Case created successfully!', 'success')
+    return redirect(url_for('dashboard'))
 
 @app.route('/admin', methods=['GET','POST'])
 @auth_required()
-@roles_accepted("admin","user") # Add necessary roles here
+@roles_accepted("admin") # Add necessary roles here
 def admin():
     existing_users = User.query.all()
     existing_roles = Role.query.all()
@@ -204,15 +268,16 @@ def upload():
                     if not file.endswith('.evtx'):
                         os.unlink(os.path.join(root, file)) # could be very dangerous
                     else:
+                        splunkIndex = request.form['case'] # pass the right index which belongs to a case
                         evtx_files.append(file)
-                        splunkConfig(file,root)
+                        splunkConfig(file,root,splunkIndex)
 
         if not evtx_files:
             cleanUploads(uploadpath)
             flash('Could not find expected filetype', 'warning')
             return redirect(url_for('index'))
         else:
-            cleanUploads()
+            cleanUploads(uploadpath)
             return redirect(url_for('index'))
         
     else:
