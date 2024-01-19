@@ -29,5 +29,3 @@ class RolesUsers(Base):
     id = Column(Integer(), primary_key=True)
     user_id = Column(Integer(), ForeignKey('user.id'))
     role_id = Column(Integer(), ForeignKey('role.id'))
-
-# Add any other models or associations you need

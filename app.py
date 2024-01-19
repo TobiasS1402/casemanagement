@@ -9,14 +9,14 @@ import requests
 import shutil
 import urllib3
 
-from models import User, Role
-from database import db_session, init_db
+from models import User, Role # import from models.py
+from database import db_session, init_db # import from database.py
 
-urllib3.disable_warnings()
+urllib3.disable_warnings() # disable logging warnings
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'asdasd23r23tg43g'
-app.config['SECURITY_PASSWORD_SALT'] = 'sdasd32rf4wefsdvre6745hbf'
+app.config['SECRET_KEY'] = 'asdasd23r23tg43g' # randomize on deployment
+app.config['SECURITY_PASSWORD_SALT'] = 'sdasd32rf4wefsdvre6745hbf' # randomize on deployment
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['SPLUNK_URL'] = 'https://145.100.105.146:8089/services/receivers/stream' # Splunk URL -> need to make this a variable
 app.config['SPLUNK_TOKEN'] = 'eyJraWQiOiJzcGx1bmsuc2VjcmV0IiwiYWxnIjoiSFM1MTIiLCJ2ZXIiOiJ2MiIsInR0eXAiOiJzdGF0aWMifQ.eyJpc3MiOiJ0b2JpYXMgZnJvbSBXSU4tTDdRRUk4NThGSEYiLCJzdWIiOiJ0b2JpYXMiLCJhdWQiOiJhdXRvbWF0aWMgZXZ0eCBwcm9jZXNzaW5nIiwiaWRwIjoiU3BsdW5rIiwianRpIjoiZDRhNzc5OTE1NDUxOGZmMDM1MTk1ZTk3ZDFkYmVhMzgwNmMxM2IxOGNiY2NlMzZkNDc0NjU3ZmJjNWQxZjA2NSIsImlhdCI6MTcwNTU3MjMzOSwiZXhwIjoxNzA4MTY0MzM5LCJuYnIiOjE3MDU1NzIzMzl9.oVuE24zGvLYKPwdkurl-fxo2iXl6boeddpU3FxWcgTvFCFRVvAze5zLTZiHPsVANdz8YouyeuQqB8TcEZz7p6w'
@@ -32,7 +32,7 @@ def splunkConfig(evtx,root):
     splunk_file_path = os.path.join(root, evtx) # This just makes sure I can find the file again
 
     headers = {
-        'Authorization': 'Bearer ' + splunk_token
+        'Authorization': 'Bearer ' + splunk_token # Bearer auth with splunk
     }
 
     params = { 
@@ -68,6 +68,8 @@ with app.app_context():
     app.security.datastore.find_or_create_role(
         name="admin", permissions={"all"}
     )
+    db_session.commit() 
+
     admin_user = User.query.filter_by(username='admin').first()
     db_session.commit() 
 
@@ -107,13 +109,27 @@ def logout():
 def index():
     return render_template('index.html')
 
+@app.route('/user', methods=['POST'])
+@auth_required()
+def user():
+    username = request.form['username']
+    password = request.form['password']
+    roles = request.form['role']
+    app.security.datastore.create_user(username=username,password=generate_password_hash(password,method='pbkdf2:sha256'),roles=roles)
+    return redirect(url_for('admin'))
+
+@app.route('/role', methods=['POST'])
+@auth_required()
+def role():
+    return redirect(url_for('admin'))
+
 @app.route('/admin')
 @auth_required()
 @roles_accepted("admin") # Add necessary roles here
 def admin():
     existing_users = User.query.all()
-    existing_groups = Role.query.all()
-    return render_template('admin.html', current_user=current_user, existing_users=existing_users, existing_groups=existing_groups)
+    existing_roles = Role.query.all()
+    return render_template('admin.html', current_user=current_user, existing_users=existing_users, existing_roles=existing_roles)
 
 @app.route('/upload', methods=['POST'])
 @auth_required()
