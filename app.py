@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_security import Security, current_user, auth_required, hash_password,  \
-     SQLAlchemySessionUserDatastore, permissions_accepted, utils, roles_accepted, login_required, LoginForm
+     SQLAlchemySessionUserDatastore, permissions_accepted, utils, roles_accepted, login_required, LoginForm, roles_required
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import os
