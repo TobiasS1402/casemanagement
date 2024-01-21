@@ -16,7 +16,8 @@ cases_users_association = Table('case_users_association', Base.metadata,
 class User(Base, UserMixin):
     __tablename__ = 'user'
     id = Column(Integer, primary_key=True)
-    username = Column(String(100), unique=True)
+    email = Column(String(255), unique=True)
+    username = Column(String(100), unique=True, nullable=True)
     password = Column(String(255))
     active = Column(Boolean(),default=True)
     fs_uniquifier = Column(String(64), unique=True, nullable=False)

@@ -7,13 +7,13 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
         .card {
-            width: 30%;
+            width: 40%; /* Adjust the width as needed */
             margin-right: 20px;
             margin-bottom: 20px;
             display: inline-block;
             vertical-align: top;
         }
-    </style>
+    </style>    
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -26,13 +26,18 @@
                 <li class="nav-item">
                     <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('dashboard') }}">Go to dashboard</a>
                 </li>
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('logout') }}">Logout</a>
+                </li>
             </ul>
         </div>
     </nav>
 
 <div class="container mt-5">
-    <h2>Welcome, {{ current_user.username }}!</h2>
-    <p>You are logged in as an administrator.</p>
+    <h2>Welcome, {{ current_user.email }}!</h2>
+    {% for role in current_user.roles %}
+    <p>You are logged in as {{ role.name }}</p>
+    {% endfor %}
     {% for category,message in get_flashed_messages(with_categories=true) %}
     <div class="alert alert-{{ category.lower() }}">
     <strong>{{ message }}</strong>
@@ -49,6 +54,9 @@
                 <div class="form-group">
                     <label for="username">Username:</label>
                     <input type="text" name="username" class="form-control" value="{{ request.form['username'] }}" required>
+
+                    <label for="email">Email:</label>
+                    <input type="email" name="email" class="form-control" value="{{ request.form['email'] }}" required>
 
                     <label for="password">Password:</label>
                     <input type="password" name="password" class="form-control" value="{{ request.form['password'] }}" required>
@@ -87,39 +95,41 @@
         </div>
     </div>
 
-    <!-- Display Existing Users -->
     <div class="card mt-4">
         <div class="card-header">
             <h4>Existing Users</h4>
         </div>
         <div class="card-body">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Id</th>
-                        <th>Roles</th>
-                        <!-- Add other user-related columns if needed -->
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for user in existing_users %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
                         <tr>
-                            <td>{{ user.username }}</td>
-                            <td>{{ user.id }}</td>
-                            <td>
-                                {% for role in user.roles %}
-                                    {{ role.name }}
-                                    {% if not loop.last %}, {% endif %}
-                                {% endfor %}
-                            </td>
+                            <th>Id</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Roles</th>
+                            <!-- Add other user-related columns if needed -->
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for user in existing_users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    {% for role in user.roles %}
+                                        {{ role.name }}
+                                        {% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-
     <!-- Display Existing Roles -->
     <div class="card mt-4">
         <div class="card-header">

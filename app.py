@@ -7,6 +7,7 @@ import zipfile
 import requests
 import shutil
 import urllib3
+import logging
 
 from models import User, Role, RolesUsers, Case # import from models.py
 from database import db_session, init_db # import from database.py
@@ -14,41 +15,85 @@ from database import db_session, init_db # import from database.py
 urllib3.disable_warnings() # disable logging warnings
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'asdasd23r23tg43g' # randomize on deployment
-app.config['SECURITY_PASSWORD_SALT'] = 'sdasd32rf4wefsdvre6745hbf' # randomize on deployment
+app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY") # randomize on deployment
+app.config['SECURITY_PASSWORD_SALT'] = os.environ.get("SECURITY_PASSWORD_SALT") # randomize on deployment
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['SPLUNK_URL'] = 'https://145.100.105.146:8089/services/receivers/stream' # Splunk URL -> need to make this a variable
-app.config['SPLUNK_TOKEN'] = 'eyJraWQiOiJzcGx1bmsuc2VjcmV0IiwiYWxnIjoiSFM1MTIiLCJ2ZXIiOiJ2MiIsInR0eXAiOiJzdGF0aWMifQ.eyJpc3MiOiJ0b2JpYXMgZnJvbSBXSU4tTDdRRUk4NThGSEYiLCJzdWIiOiJ0b2JpYXMiLCJhdWQiOiJhdXRvbWF0aWMgZXZ0eCBwcm9jZXNzaW5nIiwiaWRwIjoiU3BsdW5rIiwianRpIjoiZDRhNzc5OTE1NDUxOGZmMDM1MTk1ZTk3ZDFkYmVhMzgwNmMxM2IxOGNiY2NlMzZkNDc0NjU3ZmJjNWQxZjA2NSIsImlhdCI6MTcwNTU3MjMzOSwiZXhwIjoxNzA4MTY0MzM5LCJuYnIiOjE3MDU1NzIzMzl9.oVuE24zGvLYKPwdkurl-fxo2iXl6boeddpU3FxWcgTvFCFRVvAze5zLTZiHPsVANdz8YouyeuQqB8TcEZz7p6w'
+app.config['SPLUNK_URL'] = os.environ.get("SPLUNK_URL") # https://[address]:[port]
+app.config['SPLUNK_TOKEN'] = os.environ.get("SPLUNK_TOKEN") # bearer token
 
 app.teardown_appcontext(lambda exc: db_session.close())
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 app.security = Security(app, user_datastore, register_blueprint=False)
+logging.basicConfig(filename='app.log', level=logging.INFO)
 
+'''
+Delete splunk index: curl -o - -X DELETE -k -u xxx:xxx \
+     https://145.100.105.146:8089/services/data/indexes/test4
 
-def splunkConfig(evtx,root,index):
-    splunk_url = app.config['SPLUNK_URL']
-    splunk_token = app.config['SPLUNK_TOKEN']
-    splunk_file_path = os.path.join(root, evtx) # This just makes sure I can find the file again
+'''
 
-    headers = {
-        'Authorization': 'Bearer ' + splunk_token # Bearer auth with splunk
-    }
-
-    params = { 
-        "sourcetype": "preprocess-winevt", # Required for correct processing of eventlogdata
-        "index": index # The index its being put in -> need to make this a variable
-    }
-
-    files = {'data': (evtx, open(splunk_file_path, 'rb'))} # Get filename for source and read the actual file
-
-    splunkRequest = requests.post(splunk_url, params=params, headers=headers, files=files, verify=False) # send the request (looped) to splunk
-
-    if splunkRequest.status_code == 204:
-        flash('File '+ evtx + ' uploaded, unpacked and sent to splunk successfully!', 'success')
-        return redirect(url_for('index'))
+@app.before_request
+def log_authentication_and_authorization():
+    if current_user.is_authenticated:
+        logging.info(f"User {current_user.username} accessed /{request.endpoint} from {request.remote_addr}")
     else:
-        flash('File '+ evtx + ' uploaded, but communication to splunk failed', 'danger')
-        return redirect(url_for('index'))
+        logging.warning("Unauthenticated access attempted.")
+
+class splunkInterface:
+    def __init__(self):
+        self.splunk_url = app.config['SPLUNK_URL']
+        self.splunk_token = app.config['SPLUNK_TOKEN']
+        self.splunk_headers = {
+            'Authorization': 'Bearer ' + self.splunk_token
+        }
+
+    def create_index(self, index):
+        url = self.splunk_url + "/services/data/indexes"
+
+        data = {
+            "name": index
+        }
+
+        splunk_request = requests.post(
+            url,
+            headers=self.splunk_headers,
+            data=data,
+            verify=False
+        )
+
+        if splunk_request.status_code == 201:
+            flash(f'Index {index} has been created successfully!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash(f'Index creation has failed with {splunk_request.status_code}', 'danger')
+            return redirect(url_for('index'))
+
+    def upload_to_splunk(self, evtx, root, index):
+        splunk_file_path = os.path.join(root, evtx)
+
+        params = {
+            "sourcetype": "preprocess-winevt",
+            "index": index
+        }
+
+        files = {'data': (evtx, open(splunk_file_path, 'rb'))}
+
+        url = self.splunk_url + "/services/receivers/stream"
+
+        splunk_request = requests.post(
+            url,
+            params=params,
+            headers=self.splunk_headers,
+            files=files,
+            verify=False
+        )
+
+        if splunk_request.status_code == 204:
+            flash('File ' + evtx + ' uploaded, unpacked, and sent to Splunk successfully!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('File ' + evtx + ' uploaded, but communication to Splunk failed', 'danger')
+            return redirect(url_for('index'))
 
 
 def cleanUploads(uploadPath):
@@ -85,7 +130,7 @@ with app.app_context():
 
     if not admin_user:
         admin_password = "adminpassword"
-        app.security.datastore.create_user(username='admin',password=generate_password_hash(admin_password,method='pbkdf2:sha256'),roles=["admin"])
+        app.security.datastore.create_user(username='admin',email='admin@admin.nl',password=generate_password_hash(admin_password,method='pbkdf2:sha256'),roles=["admin"])
         db_session.commit()
         print('Admin user created successfully with password: ' + str(admin_password))
 
@@ -96,15 +141,15 @@ def login():
         return redirect(url_for("index"))
     
     if request.method == 'POST':
-        username = request.form['username']
+        email = request.form['email']
         password = request.form['password']
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
             utils.login_user(user)
             flash('Login successful!', 'success')
             return redirect(url_for('index'))
         else:
-            flash('Login failed. Check your username and password.', 'danger')
+            flash('Login failed. Check your email and password.', 'danger')
             return render_template('login.html')
     return render_template('login.html')
 
@@ -138,27 +183,36 @@ def dashboard():
 def user():
     # Get form data
     username = request.form['username']
+    email = request.form['email']
     password = request.form['password']
     roles = request.form.getlist('roles')
 
     # Input validation
-    if not username or not password or not roles:
+    if not email or not username or not password or not roles:
         flash('Please fill out all fields.', 'danger')
         return redirect(url_for('admin'))
 
     # Check if user with the same username already exists
     existing_user = User.query.filter_by(username=username).first()
 
+    existing_email = User.query.filter_by(email=email).first()
+
     if existing_user:
         flash(f'A user with the username {username} already exists.', 'danger')
         return redirect(url_for('admin'))
 
+    if existing_email:
+        flash(f'A user with the emailaddress {username} already exists.', 'danger')
+        return redirect(url_for('admin'))
+    
     # Create the new user
     hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
     #new_user = User(username=username, password=hashed_password, roles=roles) #breaks for some reason??
-    app.security.datastore.create_user(username=username,password=hashed_password,roles=roles)
+    app.security.datastore.create_user(username=username,email=email,password=hashed_password,roles=roles)
 
     db_session.commit()
+    
+    logging.info(f"User {current_user.username} created new user {username} with role {roles} from {request.remote_addr}")
 
     flash('User created successfully!', 'success')
     return redirect(url_for('admin'))
@@ -188,6 +242,8 @@ def role():
     app.security.datastore.create_role(name=role_name, description=description, permissions=permissions)
     db_session.commit()
 
+    logging.info(f"User {current_user.username} created new role {role} with permissions {permissions} from {request.remote_addr}")
+
     flash('Role created successfully!', 'success')
     return redirect(url_for('admin'))
 
@@ -198,7 +254,7 @@ def case():
     # Get form data
     name = request.form['name']
     client = request.form['client']
-    splunk_index = request.form['splunk_index']
+    splunk_index = request.form['splunk_index'].lower()
     assigned_users_ids = request.form.getlist('assigned_users')  # Handle multiple assigned users
 
     # Input validation
@@ -212,6 +268,8 @@ def case():
         flash(f'A case with the name {name} already exists.', 'danger')
         return redirect(url_for('admin'))
 
+    splunkInterface().create_index(index=splunk_index)
+    
     # Create the new case
     new_case = Case(name=name, client=client, splunk_index=splunk_index)
 
@@ -222,6 +280,8 @@ def case():
     # Add the case to the database
     db_session.add(new_case)
     db_session.commit()
+
+    logging.info(f"User {current_user.username} created new case {name} for {client} from {request.remote_addr}")
 
     flash('Case created successfully!', 'success')
     return redirect(url_for('dashboard'))
@@ -258,6 +318,8 @@ def upload():
         zip_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.username, secure_filename(file.filename))
         file.save(zip_path)
 
+        logging.info(f"User {current_user.username} uploaded zip to {zip_path} from {request.remote_addr}")
+
         uploadpath = os.path.join(app.config['UPLOAD_FOLDER'], current_user.username)
         evtx_files = [] 
 
@@ -270,7 +332,8 @@ def upload():
                     else:
                         splunkIndex = request.form['case'] # pass the right index which belongs to a case
                         evtx_files.append(file)
-                        splunkConfig(file,root,splunkIndex)
+                        splunkInterface().upload_to_splunk(evtx=file,root=root,index=splunkIndex)
+                        logging.info(f"User {current_user.username} uploaded evidence {file} for {splunkIndex} from {request.remote_addr}")
 
         if not evtx_files:
             cleanUploads(uploadpath)

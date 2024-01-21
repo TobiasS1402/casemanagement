@@ -21,13 +21,19 @@
                 <li class="nav-item">
                     <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('dashboard') }}">Go to dashboard</a>
                 </li>
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('logout') }}">Logout</a>
+                </li>
             </ul>
         </div>
     </nav>
     
     <div class="container mt-5">
-        <h2>Welcome, {{ current_user.username }}!</h2>
-        <p>You are logged in.</p>
+        <h2>Welcome, {{ current_user.email }}!</h2>
+        {% for role in current_user.roles %}
+            <p>You are logged in as {{ role.name }}</p>
+        {% endfor %}
+
         {% for category,message in get_flashed_messages(with_categories=true) %}
             <div class="alert alert-{{ category.lower() }}">
                 <strong>{{ message }}</strong>
@@ -51,8 +57,6 @@
             
             <button type="submit" class="btn btn-primary">Upload</button>
         </form>
-        <br>
-        <a href="{{ url_for('logout') }}">Logout</a>
     </div>
 </body>
 </html>

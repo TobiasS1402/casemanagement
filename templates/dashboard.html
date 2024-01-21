@@ -21,6 +21,9 @@
                 <li class="nav-item">
                     <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('index') }}">Back to main</a>
                 </li>
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('logout') }}">Logout</a>
+                </li>
             </ul>
         </div>
     </nav>
@@ -28,39 +31,51 @@
     <!-- Add Case Form -->
     {% for role in current_user.roles %}
         {% if "all" in role.permissions or "add" in role.permissions %}
-        <div class="card mt-4">
-            <div class="card-header">
-                <h4>Add New Case</h4>
+            {% for category,message in get_flashed_messages(with_categories=true) %}
+            <div class="alert alert-{{ category.lower() }}">
+                <strong>{{ message }}</strong>
             </div>
-            <div class="card-body">
-                <div class="container">
-                    <div class="row justify-content-center">
-                        <div class="col-md-8">
-                            <form method="POST" action="{{ url_for('case') }}">
-                                <div class="form-group">
-                                    <label for="name">Name:</label>
-                                    <input type="text" name="name" class="form-control" placeholder="AWS ransomware incident" value="{{ request.form['name'] }}" required>
-
-                                    <label for="client">Client:</label>
-                                    <input type="text" name="client" class="form-control" placeholder="InsecureCorp LLC" value="{{ request.form['client'] }}" required>
-
-                                    <label for="splunk_index">Splunk Index:</label>
-                                    <input type="text" name="splunk_index" class="form-control" placeholder="myNewIndex" value="{{ request.form['splunk_index'] }}" required>
-
-                                    <label for="assigned_users">Assigned Users:</label>
-                                    <select name="assigned_users" class="form-control" multiple required>
-                                        {% for user in existing_users %}
-                                            <option value="{{ user.id }}">{{ user.username }}</option>
-                                        {% endfor %}
-                                    </select>
+            {% endfor %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4>
+                        Add New Case
+                        <button class="btn btn-link float-right" type="button" data-toggle="collapse" data-target="#addCaseForm" aria-expanded="false" aria-controls="addCaseForm">
+                            Create case menu
+                        </button>
+                    </h4>
+                </div>
+                <div id="addCaseForm" class="collapse">
+                    <div class="card-body">
+                        <div class="container">
+                            <div class="row justify-content-center">
+                                <div class="col-md-8">
+                                    <form method="POST" action="{{ url_for('case') }}">
+                                        <div class="form-group">
+                                            <label for="name">Name:</label>
+                                            <input type="text" name="name" class="form-control" placeholder="AWS ransomware incident" value="{{ request.form['name'] }}" required>
+    
+                                            <label for="client">Client:</label>
+                                            <input type="text" name="client" class="form-control" placeholder="InsecureCorp LLC" value="{{ request.form['client'] }}" required>
+    
+                                            <label for="splunk_index">Splunk Index:</label>
+                                            <input type="text" name="splunk_index" class="form-control" placeholder="mynewindex" value="{{ request.form['splunk_index'] }}" required>
+    
+                                            <label for="assigned_users">Assigned Users:</label>
+                                            <select name="assigned_users" class="form-control" multiple required>
+                                                {% for user in existing_users %}
+                                                    <option value="{{ user.id }}">{{ user.username }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Create Case</button>
+                                    </form>
                                 </div>
-                                <button type="submit" class="btn btn-primary">Create Case</button>
-                            </form>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
         {% endif %}
     {% endfor %}
 
@@ -95,5 +110,8 @@
             </tbody>
         </table>
     </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>
