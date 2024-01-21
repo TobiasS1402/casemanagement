@@ -6,8 +6,13 @@ name: Docker
 # documentation.
 
 on:
-  pull_request:
-    branches: [ master ]
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - '*.*.*'  
+
 
 env:
   # Use docker.io for Docker Hub if empty
@@ -71,7 +76,7 @@ jobs:
           context: .
           file: ./infrastructure/dockerfiles/Dockerfile-prod
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ghcr.io/${{ github.repository_owner }}/${{ github.repository_name }}:${{ steps.extract-version.outputs.VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
 
       # Sign the resulting Docker image digest except on PRs.
