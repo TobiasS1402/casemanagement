@@ -1,3 +1,5 @@
+# v0.2
+
 ## Required Environment variables
 - `SECRET_KEY` varchar(100) secret value for cookie "salt" in Flask
 - `SECURITY_PASSWORD_SALT` varchar(100) secret value for password salting
