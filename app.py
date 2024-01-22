@@ -24,7 +24,7 @@ app.config['SPLUNK_TOKEN'] = os.environ.get("SPLUNK_TOKEN") # bearer token
 app.teardown_appcontext(lambda exc: db_session.close())
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 app.security = Security(app, user_datastore, register_blueprint=False)
-logging.basicConfig(filename='app.log', level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 '''
 Delete splunk index: curl -o - -X DELETE -k -u xxx:xxx \
@@ -111,7 +111,7 @@ with app.app_context():
     '''
     init_db()
     app.security.datastore.find_or_create_role(
-        name="admin", description="Manage app with access to admin endpoint", permissions={"all"}
+        name="admin", description="Manage app with access to admin endpoint", permissions={"view", "upload", "add", "create_user"}
     )
     db_session.commit() 
 
@@ -167,6 +167,34 @@ def logout():
 def index():
     existing_users = User.query.all()
     return render_template('index.html', existing_users=existing_users)
+
+
+@app.route('/me', methods=['GET', 'POST'])
+@auth_required()
+def me():
+    if request.method == 'POST':
+        current_password = request.form['current_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+
+        # Check if the current password is correct
+        if not check_password_hash(current_user.password, current_password):
+            flash('Current password is incorrect.', 'danger')
+            return redirect(url_for('change_password'))
+
+        # Check if the new password and confirmation match
+        if new_password != confirm_password:
+            flash('New password and confirmation do not match.', 'danger')
+            return redirect(url_for('change_password'))
+
+        # Update the user's password
+        current_user.password = generate_password_hash(new_password, method='pbkdf2:sha256')
+        db_session.commit()
+
+        flash('Password successfully changed!', 'success')
+        return redirect(url_for('index'))
+
+    return render_template('profile.html')
 
 
 @app.route('/dashboard', methods=['POST','GET'])
@@ -286,6 +314,66 @@ def case():
     flash('Case created successfully!', 'success')
     return redirect(url_for('dashboard'))
 
+
+@app.route('/edit_case/<int:case_id>', methods=['GET','POST'])
+@auth_required()
+@roles_accepted("admin")
+def edit_case(case_id):
+    existing_case = Case.query.filter_by(id=case_id).first()
+    existing_users = User.query.all()
+
+    if request.method == "GET":    
+        if not existing_case:
+            flash(f'This case does not exist', 'danger')
+            return redirect(url_for('dashboard'))
+        else:
+            pass
+
+    elif request.method == 'POST':
+        name = request.form['name']
+        client = request.form['client']
+        splunk_index = request.form['splunk_index'].lower()
+        assigned_users_ids = request.form.getlist('all_users')
+
+        if not existing_case:
+            flash(f'This case does not exist', 'danger')
+            return redirect(url_for('dashboard'))
+        else:
+            if not name or not client or not splunk_index or not assigned_users_ids:
+                flash('Please fill out all fields.', 'danger')
+                return redirect(url_for('dashboard'))
+            else:
+                existing_case.name = name
+                existing_case.client = client
+                existing_case.splunk_index = splunk_index
+
+                assigned_users = User.query.filter(User.id.in_(assigned_users_ids)).all()
+                existing_case.assigned_users = assigned_users
+
+                db_session.commit()
+
+                logging.info(f"User {current_user.username} updated case {name} for {client} from {request.remote_addr}")
+                flash('Case updated successfully!', 'success')
+
+    return render_template('case.html', case=existing_case, existing_users=existing_users)
+
+
+@app.route('/delete_case/<int:case_id>', methods=['POST'])
+@auth_required()
+@roles_accepted("admin")
+def delete_case(case_id):
+    existing_case = Case.query.filter_by(id=case_id).first()
+    if not existing_case:
+        flash(f'This case does not exist', 'danger')
+        return redirect(url_for('dashboard'))
+    else:
+        db_session.delete(existing_case)
+        db_session.commit()
+        flash('Case deleted successfully!', 'success')
+        flash('Splunk index has not been deleted', 'warning')
+    return redirect(url_for('dashboard'))
+
+
 @app.route('/admin', methods=['GET','POST'])
 @auth_required()
 @roles_accepted("admin") # Add necessary roles here
@@ -295,6 +383,7 @@ def admin():
     roles_users = RolesUsers.query.all()
     cases_users = Case.query.all()
     return render_template('admin.html', current_user=current_user, existing_users=existing_users, existing_roles=existing_roles, roles_users=roles_users, cases_users=cases_users)
+
 
 @app.route('/upload', methods=['POST'])
 @auth_required()

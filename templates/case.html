@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Case</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .card {
+            width: 40%; /* Adjust the width as needed */
+            margin-right: 20px;
+            margin-bottom: 20px;
+            display: inline-block;
+            vertical-align: top;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="{{ url_for('index') }}">Evidence Portal</a>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                {% for role in current_user.roles %}
+                {% if role.name == 'admin' %}
+                    <li class="nav-item">
+                        <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('admin') }}">Go to Admin Panel</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('index') }}">Back to main</a>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('dashboard') }}">Go to dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-danger mx-2 my-2 my-sm-0" href="{{ url_for('logout') }}">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h2>Edit Case</h2>
+        <form method="POST" action="{{ url_for('edit_case', case_id=case.id) }}">
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4>Edit Case Details</h4>
+                </div>
+                <div class="card-body">
+                    {% for category, message in get_flashed_messages(with_categories=true) %}
+                        <div class="alert alert-{{ category.lower() }}">
+                            <strong>{{ message }}</strong>
+                        </div>
+                    {% endfor %}
+                    <div class="form-group">
+                        <label for="name">Case Name:</label>
+                        <input type="text" name="name" class="form-control" value="{{ case.name }}" required>
+
+                        <label for="client">Client:</label>
+                        <input type="text" name="client" class="form-control" value="{{ case.client }}" required>
+
+                        <label for="splunk_index">Splunk Index:</label>
+                        <input type="text" name="splunk_index" class="form-control" value="{{ case.splunk_index }}" required>
+
+                        <label for="assigned_users">Currently assigned Users:</label>
+                        <select name="assigned_users" class="form-control" multiple>
+                            {% for user in case.assigned_users %}
+                                <option value="{{ user.id }}" {% if user.id in case.assigned_users_ids %}selected{% endif %}>{{ user.username }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <label for="all_users">Select users:</label>
+                        <select name="all_users" class="form-control" multiple required>
+                            {% for user in existing_users %}
+                                <option value="{{ user.id }}">{{ user.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

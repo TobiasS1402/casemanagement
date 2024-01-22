@@ -1,24 +1,23 @@
-### How to upload stuff to splunk
+## Required Environment variables
+- `SECRET_KEY` varchar(100) secret value for cookie "salt" in Flask
+- `SECURITY_PASSWORD_SALT` varchar(100) secret value for password salting
+- `SPLUNK_URL` url(`https://{ip}:{port}`) for Splunk api port 8089
+- `SPLUNK_TOKEN` JWT for Splunk access via api as bearer
+- `PROD_DB_STRING` PostgreSQL connection string as `postgesql://{username}:{password}@{hostname}:{port}/{database}?sslmode=require`
 
-Need to have `:8089` exposed in order to connect to the api
+## Running dev by hand
+```bash
+pip install -r requirements.txt
 
-Curl command:
-```sh
-curl -D - -u tobias:[redacted] -F 'data=@test.evtx' "https://145.100.105.146:8089/services/receivers/stream?sourcetype=preprocess-winevt&index=main&host=curl-testing2" --insecure
-HTTP/1.1 100 Continue
-
-HTTP/1.1 204 No Content
-Date: Wed, 17 Jan 2024 14:11:48 GMT
-Expires: Thu, 26 Oct 1978 00:00:00 GMT
-Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-Content-Length: 0
-Vary: Cookie, Authorization
-Connection: Keep-Alive
-X-Frame-Options: SAMEORIGIN
-Server: Splunkd
-
+env DEPLOYMENT="development" env SECRET_KEY="sadsadsad" env SECURITY_SALT_PASSWORD="asdasda" env SPLUNK_URL="https://127.0.0.1:8089" env SPLUNK_TOKEN="eyJra.." env python app.py
 ```
 
+## Running prod by hand
+```bash
+pip install -r requirements.txt
+
+env DEPLOYMENT="production" env SECRET_KEY="sadsadsad" env SECURITY_SALT_PASSWORD="asdasda" env SPLUNK_URL="https://127.0.0.1:8089" env SPLUNK_TOKEN="eyJra.." env PROD_DB_STRING="" gunicorn --bind 0.0.0.0:9000 --access-logfile - app:app
+```
 
 
 **Sources:**
