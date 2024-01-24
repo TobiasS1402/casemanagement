@@ -8,9 +8,6 @@
 </head>
 <body>
     <div class="container mt-5">
-        <div class="alert alert-info">
-            <strong>App Version:</strong> v0.2 <!-- Replace with your actual version -->
-        </div>
         <h2>Login</h2>
         {% for category,message in get_flashed_messages(with_categories=true) %}
             <div class="alert alert-{{ category.lower() }}">
@@ -28,6 +25,12 @@
             </div>
             <button type="submit" class="btn btn-primary">Login</button>
         </form>
+        <footer>
+            <br>
+            <div class="alert alert-info">
+                <strong>App Version:</strong> v0.3 <!-- Replace with your actual version -->
+            </div>
+        </footer>
     </div>
 </body>
 </html>

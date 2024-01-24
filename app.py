@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_security import Security, current_user, auth_required,SQLAlchemySessionUserDatastore, utils, roles_accepted, roles_required, permissions_required, permissions_accepted
+from flask_security import Security, current_user, auth_required, SQLAlchemySessionUserDatastore, utils, roles_accepted, roles_required, permissions_required, permissions_accepted
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import os
@@ -41,6 +41,7 @@ def log_authentication_and_authorization():
 
 class splunkInterface:
     def __init__(self):
+        '''Initialization function loading our splunk host and setting the JWT bearer'''
         self.splunk_url = app.config['SPLUNK_URL']
         self.splunk_token = app.config['SPLUNK_TOKEN']
         self.splunk_headers = {
@@ -48,6 +49,7 @@ class splunkInterface:
         }
 
     def create_index(self, index):
+        '''Index creation function which passes the custom index name as data to the url endpoint'''
         url = self.splunk_url + "/services/data/indexes"
 
         data = {
@@ -69,6 +71,7 @@ class splunkInterface:
             return redirect(url_for('index'))
 
     def upload_to_splunk(self, evtx, root, index):
+        '''Evidence upload function which passes our file(streams) on our index with the url endpoint'''
         splunk_file_path = os.path.join(root, evtx)
 
         params = {
@@ -278,6 +281,7 @@ def role():
 
 @app.route('/case', methods=['POST'])
 @auth_required()
+@roles_accepted("admin", "user")
 def case():
     # Get form data
     name = request.form['name']
@@ -443,4 +447,7 @@ def upload():
 if __name__ == '__main__':
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
-    app.run(debug=True)
+    if os.environ.get("DEPLOYMENT") == "development":
+        app.run(debug=True)
+    elif os.environ.get("DEPLOYMENT") == "production":
+        app.run(debug=False)
