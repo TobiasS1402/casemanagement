@@ -15,7 +15,6 @@
             </div>
         {% endfor %}
         <form method="POST" action="{{ url_for('security.login') }}">
-            {{ form.csrf_token }}
             <div class="form-group">
                 <label for="email">Email:</label>
                 <input type="email" name="email" class="form-control" required>
@@ -24,6 +23,7 @@
                 <label for="password">Password:</label>
                 <input type="password" name="password" class="form-control" required>
             </div>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <button type="submit" class="btn btn-primary">Login</button>
         </form>
         <footer>

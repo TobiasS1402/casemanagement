@@ -23,6 +23,8 @@ app.config['SECURITY_PASSWORD_SALT'] = os.environ.get("SECURITY_PASSWORD_SALT") 
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['SPLUNK_URL'] = os.environ.get("SPLUNK_URL") # https://[address]:[port]
 app.config['SPLUNK_TOKEN'] = os.environ.get("SPLUNK_TOKEN") # bearer token
+app.config['ADMIN_PASSWORD'] = os.environ.get("ADMIN_PASSWORD") # custom strong admin password
+app.config['ADMIN_EMAIL'] = os.environ.get("ADMIN_EMAIL") # set custom default admin email
 
 app.teardown_appcontext(lambda exc: db_session.close())
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
@@ -122,6 +124,8 @@ with app.app_context():
     Method to initiate the user database and create an admin user with the password "adminpassword".
     Uses User class from models.py
     '''
+    
+
     init_db()
     app.security.datastore.find_or_create_role(
         name="admin", description="Manage app with access to admin endpoint", permissions={"view", "upload", "add", "create_user"}
@@ -142,8 +146,10 @@ with app.app_context():
     db_session.commit() 
 
     if not admin_user:
-        admin_password = "adminpassword"
-        app.security.datastore.create_user(username='admin',email='admin@admin.nl',password=generate_password_hash(admin_password,method='pbkdf2:sha256'),roles=["admin"])
+        admin_password = app.config['ADMIN_PASSWORD']
+        admin_email = app.config['ADMIN_EMAIL']
+        #admin_password = "adminpassword" not good
+        app.security.datastore.create_user(username='admin',email=admin_email,password=generate_password_hash(admin_password,method='pbkdf2:sha256'),roles=["admin"])
         db_session.commit()
         print('Admin user created successfully with password: ' + str(admin_password))
 
