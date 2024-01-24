@@ -62,4 +62,4 @@ jobs:
         app-name: 'evidenceportal'
         slot-name: 'production'
         publish-profile: ${{ secrets.AzureAppService_PublishProfile_aa12e4f1cf934f03bcc49439eadcb076 }}
-        images: 'ghcr.io/${{ secrets.AzureAppService_ContainerUsername_bcdb5b08191d4b97b7fce2430d52a001 }}/tobiass1402/casemanagement:main'
+        images: 'ghcr.io/tobiass1402/casemanagement:main'
