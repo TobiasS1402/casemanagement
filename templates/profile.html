@@ -62,6 +62,7 @@
 
                         <label for="confirm_password">Confirm Password:</label>
                         <input type="password" name="confirm_password" class="form-control" required>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     </div>
                     <button type="submit" class="btn btn-primary">Change Password</button>
                 </div>

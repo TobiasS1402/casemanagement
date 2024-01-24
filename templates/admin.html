@@ -70,6 +70,7 @@
                             <option value="{{ role.name }}">{{ role.name }}</option>
                         {% endfor %}
                     </select>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 </div>
                 <button type="submit" class="btn btn-primary">Add User</button>
             </form>
@@ -92,6 +93,7 @@
 
                     <label for="permissions">Permissions:</label>
                     <input type="text" name="permissions" class="form-control" placeholder="view,upload,test" value="{{ request.form['permissions'] }}" required>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 </div>
                 <button type="submit" class="btn btn-primary">Add Role</button>
             </form>

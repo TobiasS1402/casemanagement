@@ -57,7 +57,7 @@
                     {% endfor %}
                 </select>
             </div>
-            
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <button type="submit" class="btn btn-primary">Upload</button>
         </form>
     </div>

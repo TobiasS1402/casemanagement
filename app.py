@@ -2,13 +2,16 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_security import Security, current_user, auth_required, SQLAlchemySessionUserDatastore, utils, roles_accepted, roles_required, permissions_required, permissions_accepted
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from wtforms import StringField, PasswordField, SubmitField
+from wtforms.validators import DataRequired, Email
+from flask_wtf.csrf import CSRFProtect
+from flask_wtf import FlaskForm
 import os
 import zipfile
 import requests
 import shutil
 import urllib3
 import logging
-
 from models import User, Role, RolesUsers, Case # import from models.py
 from database import db_session, init_db # import from database.py
 
@@ -24,6 +27,7 @@ app.config['SPLUNK_TOKEN'] = os.environ.get("SPLUNK_TOKEN") # bearer token
 app.teardown_appcontext(lambda exc: db_session.close())
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 app.security = Security(app, user_datastore, register_blueprint=False)
+csrf = CSRFProtect(app)
 logging.basicConfig(level=logging.INFO)
 
 '''
@@ -99,6 +103,12 @@ class splunkInterface:
             return redirect(url_for('index'))
 
 
+class LoginForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[DataRequired()])
+    submit = SubmitField('Login')
+
+
 def cleanUploads(uploadPath):
     for root, dir, files in os.walk(uploadPath):
         for file in files:
@@ -142,11 +152,14 @@ with app.app_context():
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("index"))
-    
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
+
+    form = LoginForm()
+
+    if form.validate_on_submit():
+        email = form.email.data
+        password = form.password.data
         user = User.query.filter_by(email=email).first()
+
         if user and check_password_hash(user.password, password):
             utils.login_user(user)
             flash('Login successful!', 'success')
@@ -154,7 +167,7 @@ def login():
         else:
             flash('Login failed. Check your email and password.', 'danger')
             return render_template('login.html')
-    return render_template('login.html')
+    return render_template('login.html', form=form)
 
 
 @app.route('/logout')

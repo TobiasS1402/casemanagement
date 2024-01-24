@@ -15,6 +15,7 @@
             </div>
         {% endfor %}
         <form method="POST" action="{{ url_for('security.login') }}">
+            {{ form.csrf_token }}
             <div class="form-group">
                 <label for="email">Email:</label>
                 <input type="email" name="email" class="form-control" required>

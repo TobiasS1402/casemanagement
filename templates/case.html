@@ -76,6 +76,7 @@
                                 <option value="{{ user.id }}">{{ user.username }}</option>
                             {% endfor %}
                         </select>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     </div>
                     <button type="submit" class="btn btn-primary">Save Changes</button>
                 </div>
