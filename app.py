@@ -200,12 +200,12 @@ def me():
         # Check if the current password is correct
         if not check_password_hash(current_user.password, current_password):
             flash('Current password is incorrect.', 'danger')
-            return redirect(url_for('change_password'))
+            return redirect(url_for('me'))
 
         # Check if the new password and confirmation match
         if new_password != confirm_password:
             flash('New password and confirmation do not match.', 'danger')
-            return redirect(url_for('change_password'))
+            return redirect(url_for('me'))
 
         # Update the user's password
         current_user.password = generate_password_hash(new_password, method='pbkdf2:sha256')
