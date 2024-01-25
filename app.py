@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_security import Security, current_user, auth_required, SQLAlchemySessionUserDatastore, utils, roles_accepted, roles_required, permissions_required, permissions_accepted
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -124,8 +124,6 @@ with app.app_context():
     Method to initiate the user database and create an admin user with the password "adminpassword".
     Uses User class from models.py
     '''
-    
-
     init_db()
     app.security.datastore.find_or_create_role(
         name="admin", description="Manage app with access to admin endpoint", permissions={"view", "upload", "add", "create_user"}
@@ -162,7 +160,7 @@ def login():
     form = LoginForm()
 
     if form.validate_on_submit():
-        email = form.email.data
+        email = form.email.data.lower()
         password = form.password.data
         user = User.query.filter_by(email=email).first()
 
@@ -233,7 +231,7 @@ def dashboard():
 def user():
     # Get form data
     username = request.form['username']
-    email = request.form['email']
+    email = request.form['email'].lower()
     password = request.form['password']
     roles = request.form.getlist('roles')
 
