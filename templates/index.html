@@ -44,7 +44,7 @@
         {% endfor %}
         <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data">
             <div class="form-group">
-                <label for="file">Upload a .zip file:</label>
+                <label for="file">Upload a .zip file [NORMAL UPLOAD]:</label>
                 <input type="file" name="file" accept=".zip" class="form-control-file" required>
             </div>
             
@@ -60,6 +60,34 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <button type="submit" class="btn btn-primary">Upload</button>
         </form>
+        <form method="POST" action="{{ url_for('analysis') }}" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">Upload a .zip file [WORKER ANALYSIS HAYABUSA]:</label>
+                <input type="file" name="file" accept=".zip" class="form-control-file" required>
+            </div>
+            
+            <!-- Dropdown menu for selecting cases -->
+            <div class="form-group">
+                <label for="case">Select a case:</label>
+                <select name="case" class="form-control" required>
+                    {% for case in current_user.assigned_cases %}
+                        <option value="{{ case.splunk_index }}">{{ case.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-primary">Upload</button>
+        </form>
+        <pre id="json-data"></pre>
+        <script>
+        {% for response in jsonlist %} 
+            {% for json in response %}
+                jsonData =  {{ json | tojson }}
+                var formattedJson = JSON.stringify(jsonData, null, 2);
+                document.getElementById('json-data').textContent += formattedJson + ',\n';
+            {% endfor %}
+        {% endfor %} 
+        </script>
     </div>
 </body>
 </html>

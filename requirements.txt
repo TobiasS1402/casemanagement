@@ -1,3 +1,4 @@
+celery==5.3.6
 Flask==3.0.0
 Flask-Security-Too==5.3.3
 Flask-SQLAlchemy==3.1.1

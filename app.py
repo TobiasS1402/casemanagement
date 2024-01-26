@@ -6,7 +6,10 @@ from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Email
 from flask_wtf.csrf import CSRFProtect
 from flask_wtf import FlaskForm
+from celery import Celery, shared_task
+from celery.result import AsyncResult
 import os
+import json
 import zipfile
 import requests
 import shutil
@@ -31,6 +34,14 @@ user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 app.security = Security(app, user_datastore, register_blueprint=False)
 csrf = CSRFProtect(app)
 logging.basicConfig(level=logging.INFO)
+
+
+app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
+app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
+
+# Initialize Celery
+celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
+celery.conf.update(app.config)
 
 '''
 Delete splunk index: curl -o - -X DELETE -k -u xxx:xxx \
@@ -76,12 +87,12 @@ class splunkInterface:
             flash(f'Index creation has failed with {splunk_request.status_code}', 'danger')
             return redirect(url_for('index'))
 
-    def upload_to_splunk(self, evtx, root, index):
+    def upload_to_splunk(self, evtx, root, index, sourcetype):
         '''Evidence upload function which passes our file(streams) on our index with the url endpoint'''
         splunk_file_path = os.path.join(root, evtx)
 
         params = {
-            "sourcetype": "preprocess-winevt",
+            "sourcetype": sourcetype,
             "index": index
         }
 
@@ -118,6 +129,17 @@ def cleanUploads(uploadPath):
         shutil.rmtree(root)
     return
 
+
+@celery.task
+def fetch_hayabusa(root,file):
+    url = "http://127.0.0.1:9000/upload"
+    access_token = "GvF2pM3G4QCod3Suqjz5"
+    file_path = os.path.join(root, file)
+
+    files = {'file': open(file_path, 'rb')}
+    params = {'access_token': access_token}
+    response = requests.post(url, files=files, params=params)
+    return response.json()
 
 with app.app_context():
     '''
@@ -442,20 +464,77 @@ def upload():
                     else:
                         splunkIndex = request.form['case'] # pass the right index which belongs to a case
                         evtx_files.append(file)
-                        splunkInterface().upload_to_splunk(evtx=file,root=root,index=splunkIndex)
+                        splunkInterface().upload_to_splunk(evtx=file,root=root,index=splunkIndex,sourcetype="preprocess-winevt")
                         logging.info(f"User {current_user.username} uploaded evidence {file} for {splunkIndex} from {request.remote_addr}")
 
         if not evtx_files:
-            cleanUploads(uploadpath)
+            #cleanUploads(uploadpath)
             flash('Could not find expected filetype', 'warning')
             return redirect(url_for('index'))
         else:
-            cleanUploads(uploadpath)
+            #cleanUploads(uploadpath)
             return redirect(url_for('index'))
         
     else:
         flash('Invalid file format. Please upload a .zip file.', 'danger')
         return redirect(url_for('index'))
+
+
+@app.route('/analysis', methods=['POST'])
+@auth_required()
+def analysis():
+    '''
+    WORK IN PROGRESS
+
+    Implement task queue with Celery to run analysis and return results
+    '''
+    if 'file' not in request.files:
+        flash('No file part', 'danger')
+        return redirect(request.url)
+    
+    file = request.files['file']
+
+    if file.filename == '':
+        flash('No selected file', 'error')
+        return redirect(request.url)
+
+    if file and file.filename.endswith('.zip'):
+        os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], current_user.username), exist_ok=True)
+        zip_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.username, secure_filename(file.filename))
+        file.save(zip_path)
+
+        logging.info(f"User {current_user.username} uploaded zip to {zip_path} from {request.remote_addr}")
+
+        uploadpath = os.path.join(app.config['UPLOAD_FOLDER'], current_user.username)
+        evtx_files = [] 
+        jsonlist = []
+
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(uploadpath)
+            for root, dir, files in os.walk(uploadpath):
+                for file in files:
+                    if not file.endswith('.evtx'):
+                        os.unlink(os.path.join(root, file)) # could be very dangerous
+                    else:
+                        splunkIndex = request.form['case'] # pass the right index which belongs to a case
+                        evtx_files.append(file)
+                        #splunkInterface().upload_to_splunk(evtx=response,root=root,index=splunkIndex,sourcetype="_json")
+                        response = fetch_hayabusa.delay(root,file)
+                        print(response)
+                        jsonlist.append(response)                 
+
+        if not evtx_files:
+            #cleanUploads(uploadpath)
+            flash('Could not find expected filetype', 'warning')
+            return redirect(url_for('index'))
+        else:
+            #cleanUploads(uploadpath)
+            return render_template('index.html', jsonlist=jsonlist)
+        
+    else:
+        flash('Invalid file format. Please upload a .zip file.', 'danger')
+        return redirect(url_for('index'))
+
 
 '''
     An API endpoint would also be nice where you can authenticate

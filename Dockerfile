@@ -4,8 +4,10 @@ WORKDIR /evidenceportal
 
 COPY . /evidenceportal/
 
+RUN apt-get update && apt-get install -y redis-server
+
 RUN pip3 install -r requirements.txt
 
 EXPOSE 9000
 
-CMD ["gunicorn","--bind","0.0.0.0:9000", "--access-logfile", "-", "app:app"]
+CMD ["./start.sh"]
