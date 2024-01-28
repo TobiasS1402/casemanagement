@@ -161,4 +161,51 @@
             </table>
         </div>
     </div>
-</div
+    <div class="card mt-4" style="width: 100%;">
+        <div class="card-header">
+            <h4>Celery Worker Job Status</h4>
+        </div>
+            <div class="card-body">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Task Name</th>
+                            <th>Filename</th>
+                            <th>Status</th>
+                            <th>Response (JSON)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in celery_tasks %}
+                            <tr>
+                                <td>{{ task.id }}</td>
+                                <td>{{ task.name }}</td>
+                                <td>{{ task.get()["file"] }}</td> 
+                                <td>{{ task.status }}</td>
+                                <td>
+                                    {% if task.status == 'SUCCESS' %}
+                                        <button class="btn btn-primary mb-3" type="button" data-toggle="collapse" data-target="#response{{ task.id }}" aria-expanded="false" aria-controls="response{{ task.id }}">
+                                            Show/Hide Response
+                                        </button>
+                                        <div class="collapse" id="response{{ task.id }}" style="overflow-x: auto;">
+                                            <pre>{{ task.get()["data"] | tojson | safe }}</pre>
+                                            <script>
+                                                var jsonData = {{ task.get()["data"] | tojson | safe }};
+                                                document.getElementById('response{{ task.id }}').innerHTML = JSON.stringify(jsonData, null, 2);
+                                            </script>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_security import Security, current_user, auth_required, SQLAlchemySessionUserDatastore, utils, roles_accepted, roles_required, permissions_required, permissions_accepted
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -6,15 +6,13 @@ from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Email
 from flask_wtf.csrf import CSRFProtect
 from flask_wtf import FlaskForm
-from celery import Celery, shared_task
-from celery.result import AsyncResult
+from celery import Celery
 import os
-import json
 import zipfile
 import requests
 import shutil
 import urllib3
-import logging
+import logging 
 from models import User, Role, RolesUsers, Case # import from models.py
 from database import db_session, init_db # import from database.py
 
@@ -28,26 +26,26 @@ app.config['SPLUNK_URL'] = os.environ.get("SPLUNK_URL") # https://[address]:[por
 app.config['SPLUNK_TOKEN'] = os.environ.get("SPLUNK_TOKEN") # bearer token
 app.config['ADMIN_PASSWORD'] = os.environ.get("ADMIN_PASSWORD") # custom strong admin password
 app.config['ADMIN_EMAIL'] = os.environ.get("ADMIN_EMAIL") # set custom default admin email
+app.config['HAYABUSA_WORKER_URL'] = os.environ.get("HAYABUSA_WORKER_URL") # hayabusa worker URL https://[host]/upload https://github.com/TobiasS1402/hayabusa-docker
+app.config['HAYABUSA_ACCESS_TOKEN'] = os.environ.get("HAYABUSA_ACCESS_TOKEN") # hayabusa accesstoken
 
+# Hardcoded Celery redis connection
+app.config['CELERY_BROKER_URL'] = 'redis://127.0.0.1:6379/0'
+app.config['CELERY_BACKEND'] = 'redis://127.0.0.1:6379/0'
+
+# App context
 app.teardown_appcontext(lambda exc: db_session.close())
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 app.security = Security(app, user_datastore, register_blueprint=False)
 csrf = CSRFProtect(app)
 logging.basicConfig(level=logging.INFO)
 
+jsonlist = [] # store all Celery results --> ideal scenario is database
 
-app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
-app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
-
-# Initialize Celery
-celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
+# Init celery
+celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'], backend=app.config['CELERY_BACKEND'],broker_connection_retry_on_startup=True,result_extended=True)
 celery.conf.update(app.config)
 
-'''
-Delete splunk index: curl -o - -X DELETE -k -u xxx:xxx \
-     https://145.100.105.146:8089/services/data/indexes/test4
-
-'''
 
 @app.before_request
 def log_authentication_and_authorization():
@@ -55,6 +53,7 @@ def log_authentication_and_authorization():
         logging.info(f"User {current_user.username} accessed /{request.endpoint} from {request.remote_addr}")
     else:
         logging.warning("Unauthenticated access attempted.")
+
 
 class splunkInterface:
     def __init__(self):
@@ -87,6 +86,7 @@ class splunkInterface:
             flash(f'Index creation has failed with {splunk_request.status_code}', 'danger')
             return redirect(url_for('index'))
 
+
     def upload_to_splunk(self, evtx, root, index, sourcetype):
         '''Evidence upload function which passes our file(streams) on our index with the url endpoint'''
         splunk_file_path = os.path.join(root, evtx)
@@ -116,13 +116,41 @@ class splunkInterface:
             return redirect(url_for('index'))
 
 
+    def stream_to_splunk(self, stream, index, sourcetype):
+        '''Evidence upload function which passes our file(streams) on our index with the url endpoint'''
+
+        params = {
+            "sourcetype": sourcetype,
+            "index": index
+        }
+
+        files = {'data': stream}
+
+        url = self.splunk_url + "/services/receivers/stream"
+
+        splunk_request = requests.post(
+            url,
+            params=params,
+            headers=self.splunk_headers,
+            files=files,
+            verify=False
+        )
+        return splunk_request
+
+
 class LoginForm(FlaskForm):
+    '''
+    /login form
+    '''
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Login')
 
 
 def cleanUploads(uploadPath):
+    '''
+    need to delete because it messes up the async worker
+    '''
     for root, dir, files in os.walk(uploadPath):
         for file in files:
             os.unlink(os.path.join(root,file))
@@ -130,16 +158,30 @@ def cleanUploads(uploadPath):
     return
 
 
-@celery.task
-def fetch_hayabusa(root,file):
-    url = "http://127.0.0.1:9000/upload"
-    access_token = "GvF2pM3G4QCod3Suqjz5"
+@celery.task(name='task.fetch_hayabusa')
+def fetch_hayabusa(root,file,sendToSplunk,splunkIndex):
+    '''
+    Async Celery task to communicate with workers and return output
+    '''
+    url = app.config['HAYABUSA_WORKER_URL']
+    access_token = app.config['HAYABUSA_ACCESS_TOKEN'] 
     file_path = os.path.join(root, file)
-
     files = {'file': open(file_path, 'rb')}
     params = {'access_token': access_token}
     response = requests.post(url, files=files, params=params)
-    return response.json()
+    if response.status_code == 200:
+        if sendToSplunk == True:
+            if response.json() != []:
+                splunkInterface().stream_to_splunk(stream=response.text,index=splunkIndex,sourcetype="_json")
+            os.unlink(os.path.join(file_path))
+            return {'file': file, 'data': response.json()} 
+            
+        else:
+            return {'file': file, 'data': response.json()} 
+        
+    else:
+        raise Exception()
+
 
 with app.app_context():
     '''
@@ -208,7 +250,7 @@ def logout():
 @auth_required()
 def index():
     existing_users = User.query.all()
-    return render_template('index.html', existing_users=existing_users)
+    return render_template('index.html', existing_users=existing_users, jsonlist=jsonlist)
 
 
 @app.route('/me', methods=['GET', 'POST'])
@@ -425,7 +467,7 @@ def admin():
     existing_roles = Role.query.all()
     roles_users = RolesUsers.query.all()
     cases_users = Case.query.all()
-    return render_template('admin.html', current_user=current_user, existing_users=existing_users, existing_roles=existing_roles, roles_users=roles_users, cases_users=cases_users)
+    return render_template('admin.html', current_user=current_user, existing_users=existing_users, existing_roles=existing_roles, roles_users=roles_users, cases_users=cases_users, celery_tasks=jsonlist)
 
 
 @app.route('/upload', methods=['POST'])
@@ -484,8 +526,6 @@ def upload():
 @auth_required()
 def analysis():
     '''
-    WORK IN PROGRESS
-
     Implement task queue with Celery to run analysis and return results
     '''
     if 'file' not in request.files:
@@ -507,7 +547,7 @@ def analysis():
 
         uploadpath = os.path.join(app.config['UPLOAD_FOLDER'], current_user.username)
         evtx_files = [] 
-        jsonlist = []
+        
 
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(uploadpath)
@@ -517,28 +557,29 @@ def analysis():
                         os.unlink(os.path.join(root, file)) # could be very dangerous
                     else:
                         splunkIndex = request.form['case'] # pass the right index which belongs to a case
+                        sendToSplunk = request.form.get('sendToBackend', 'off') == "on"
                         evtx_files.append(file)
-                        #splunkInterface().upload_to_splunk(evtx=response,root=root,index=splunkIndex,sourcetype="_json")
-                        response = fetch_hayabusa.delay(root,file)
-                        print(response)
-                        jsonlist.append(response)                 
+                        response = fetch_hayabusa.apply_async((root,file,sendToSplunk,splunkIndex), ignore_results=False, retry=True, retry_policy={
+                            'max_retries': 3,
+                            'interval_start': 0,
+                            'interval_step': 0.2,
+                            'interval_max': 0.2,
+                            'retry_errors': None,
+                        })
+                        jsonlist.append(response)
 
         if not evtx_files:
-            #cleanUploads(uploadpath)
+            cleanUploads(uploadpath)
             flash('Could not find expected filetype', 'warning')
             return redirect(url_for('index'))
+        
         else:
-            #cleanUploads(uploadpath)
             return render_template('index.html', jsonlist=jsonlist)
         
     else:
         flash('Invalid file format. Please upload a .zip file.', 'danger')
         return redirect(url_for('index'))
 
-
-'''
-    An API endpoint would also be nice where you can authenticate
-'''
 
 if __name__ == '__main__':
     if not os.path.exists(app.config['UPLOAD_FOLDER']):

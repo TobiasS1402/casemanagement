@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y redis-server
 
 RUN pip3 install -r requirements.txt
 
-EXPOSE 9000
+RUN chmod +x start.sh
+
+EXPOSE 5000
 
 CMD ["./start.sh"]
