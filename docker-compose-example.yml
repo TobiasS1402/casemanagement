@@ -1,0 +1,21 @@
+services: 
+  casemanagement:
+    image: ghcr.io/tobiass1402/casemanagement:main
+    ports: 
+      - "5000:5000"
+    environment:
+      DEPLOYMENT: development
+      SECRET_KEY: secret
+      SECURITY_PASSWORD_SALT: salt
+      SPLUNK_TOKEN: eyJra...
+      SPLUNK_URL: https://[host]:8089
+      ADMIN_EMAIL: "admin"
+      ADMIN_PASSWORD: "password"
+      HAYABUSA_WORKER_URL: http://hayabusa_worker/upload
+      HAYABUSA_ACCESS_TOKEN: hayabusa_token
+  hayabusa_worker:
+    image: ghcr.io/tobiass1402/hayabusa-docker:main
+    ports:
+      - "9000:9000"
+    environment:
+      ACCESS_TOKEN: hayabusa_token

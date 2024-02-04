@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .card {
+            width: 40%; /* Adjust the width as needed */
+            margin-right: 20px;
+            margin-bottom: 20px;
+            display: inline-block;
+            vertical-align: top;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="{{ url_for('index') }}">Evidence Portal</a>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                {% for role in current_user.roles %}
+                {% if role.name == 'admin' %}
+                    <li class="nav-item">
+                        <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('admin') }}">Go to Admin Panel</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('index') }}">Back to main</a>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('dashboard') }}">Go to dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-danger mx-2 my-2 my-sm-0" href="{{ url_for('logout') }}">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h2>Profile</h2>
+        <form method="POST" action="{{ url_for('me') }}">
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4>Change Password</h4>
+                </div>
+                <div class="card-body">
+                    {% for category, message in get_flashed_messages(with_categories=true) %}
+                        <div class="alert alert-{{ category.lower() }}">
+                            <strong>{{ message }}</strong>
+                        </div>
+                    {% endfor %}
+                    <div class="form-group">
+                        <label for="current_password">Current Password:</label>
+                        <input type="password" name="current_password" class="form-control" required>
+
+                        <label for="new_password">New Password:</label>
+                        <input type="password" name="new_password" class="form-control" required>
+
+                        <label for="confirm_password">Confirm Password:</label>
+                        <input type="password" name="confirm_password" class="form-control" required>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Change Password</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

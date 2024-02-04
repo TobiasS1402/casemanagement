@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Page</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .card {
+            width: 40%; /* Adjust the width as needed */
+            margin-right: 20px;
+            margin-bottom: 20px;
+            display: inline-block;
+            vertical-align: top;
+        }
+
+        .remove {
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+    </style>    
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="{{ url_for('index') }}">Evidence Portal</a>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('index') }}">Back to main</a>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-outline-light mx-2 my-2 my-sm-0" href="{{ url_for('dashboard') }}">Go to dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-secondary mx-2 my-2 my-sm-0" href="{{ url_for('me') }}">Profile</a>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-danger mx-2 my-2 my-sm-0" href="{{ url_for('logout') }}">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+<div class="container mt-5">
+    <h2>Welcome, {{ current_user.email }}!</h2>
+    {% for role in current_user.roles %}
+    <p>You are logged in as {{ role.name }}</p>
+    {% endfor %}
+    {% for category,message in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ category.lower() }}">
+    <strong>{{ message }}</strong>
+    </div>
+    {% endfor %}
+
+    <!-- Add User Form -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Add New User</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('user') }}">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" name="username" class="form-control" value="{{ request.form['username'] }}" required>
+
+                    <label for="email">Email:</label>
+                    <input type="email" name="email" class="form-control" value="{{ request.form['email'] }}" required>
+
+                    <label for="password">Password:</label>
+                    <input type="password" name="password" class="form-control" value="{{ request.form['password'] }}" required>
+
+                    <label for="roles">Role:</label>
+                    <select name="roles" class="form-control" required>
+                        {% for role in existing_roles %}
+                            <option value="{{ role.name }}">{{ role.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                </div>
+                <button type="submit" class="btn btn-primary">Add User</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Role Form -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Add New Role</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('role') }}">
+                <div class="form-group">
+                    <label for="role">Role Name:</label>
+                    <input type="text" name="role" class="form-control" placeholder="My role name" value="{{ request.form['role'] }}" required>
+
+                    <label for="description">Description:</label>
+                    <input type="text" name="description" class="form-control" placeholder="My new role" value="{{ request.form['description'] }}" required>
+
+                    <label for="permissions">Permissions:</label>
+                    <input type="text" name="permissions" class="form-control" placeholder="view,upload,test" value="{{ request.form['permissions'] }}" required>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                </div>
+                <button type="submit" class="btn btn-primary">Add Role</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Existing Users</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Id</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Roles</th>
+                            <!-- Add other user-related columns if needed -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in existing_users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    {% for role in user.roles %}
+                                        {{ role.name }}
+                                        {% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- Display Existing Roles -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Existing Roles</h4>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Role Name</th>
+                        <th>Description</th>
+                        <th>Permissions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role in existing_roles %}
+                        <tr>
+                            <td>{{ role.name }}</td>
+                            <td>{{ role.description }}</td>
+                            <td>{{ role.permissions }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card mt-4" style="width: 100%;">
+        <div class="card-header">
+            <h4>Celery Worker Job Status</h4>
+        </div>
+            <div class="card-body">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Task Name</th>
+                            <th>Filename</th>
+                            <th>Status</th>
+                            <th>Response (JSON)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in celery_tasks %}
+                            <tr>
+                                <td>{{ task.id }}</td>
+                                <td>{{ task.name }}</td>
+                                <td class="remove">
+                                    {% if task.status == 'SUCCESS' %}
+                                        {{ task.get()["file"] }}
+                                    {% endif %}
+                                </td> 
+                                <td>{{ task.status }}</td>
+                                <td>
+                                    {% if task.status == 'SUCCESS' %}
+                                        <button class="btn btn-primary mb-3" type="button" data-toggle="collapse" data-target="#response{{ task.id }}" aria-expanded="false" aria-controls="response{{ task.id }}">
+                                            Show/Hide Response
+                                        </button>
+                                        <div class="collapse" id="response{{ task.id }}" style="overflow: hidden; text-overflow: ellipsis;">
+                                            <pre>{{ task.get()["data"] | tojson | safe }}</pre>
+                                            <script>
+                                                var jsonData = {{ task.get()["data"] | tojson | safe }};
+                                                document.getElementById('response{{ task.id }}').innerHTML = JSON.stringify(jsonData, null, 2);
+                                            </script>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

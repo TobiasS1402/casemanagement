@@ -1,0 +1,8 @@
+venv/
+uploads/
+__pycache__/
+flask_session/
+instance/
+users.db
+app.log
+docker-compose.yml
