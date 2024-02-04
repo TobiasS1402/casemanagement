@@ -10,9 +10,13 @@ casemanagement is a Python Flask-powered application designed to streamline the 
 - **Automatic reporting**: Automatically send analyzed data to Splunk backend.
 - **Customizable**: Adapt the application to fit your specific forensic investigation workflow.
 
+## Screenshots
+_to do_
+
 ## Environment Variables
 
 To run the application, you need to set the following environment variables:
+- **DEPLOYMENT**: development creates a local sqlite db, value production expects **PROD_DB_STRING** to be set
 - **SECRET_KEY**: varchar(100) secret value for cookie "salt" in Flask
 - **SECURITY_PASSWORD_SALT**: varchar(100) secret value for password salting
 - **SPLUNK_URL**: url(`https://{ip}:{port}`) for Splunk api port 8089
@@ -76,6 +80,10 @@ docker compose up --build
 
 
 The application should now be running and accessible at `http://0.0.0.0:9000`.
+
+## Hayabusa worker
+In order to automatically have your `.evtx` files analyzed you need to set-up the Hayabusa worker from https://github.com/TobiasS1402/hayabusa-docker. 
+This has automatically been added to docker-compose, just set the same key for **HAYABUSA_ACCESS_TOKEN** and **ACCESS_TOKEN**.
 
 ## Contributing
 
